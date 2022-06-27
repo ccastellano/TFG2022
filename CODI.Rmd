@@ -1,0 +1,1087 @@
+---
+title: "Anàlisi de patrons de parla i estratègies comunicatives dels mitjans segons la seva ideologia política"
+output: word_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align = "center", out.width = "80%", 
+                      warning = FALSE, comment = FALSE, error = FALSE, message = FALSE,
+                      cache = TRUE, eval =FALSE)
+
+library(readxl)
+library(xlsx)
+library(tidyverse)
+library(tidytext)
+library(XML)
+library(widyr)
+library(ggraph)
+library(dplyr)
+library(igraph)
+library(ggplot2)
+library(NLP)
+library(tm)
+library(stringi)
+library(scales)
+library(patchwork) 
+library(wordcloud)
+library(RColorBrewer)
+library(gridExtra)
+library(usethis)
+library(devtools)
+library(ggfortify)
+library(ggplot2)
+library(dplyr)
+library(eulerr)
+library(Rcpp)
+library(kableExtra)
+```
+
+
+# III. ANÀLISI DE PATRONS DE PARLA I EXPRESSIONS
+
+## 1.	Anàlisi exploratòria de les dades
+
+```{r}
+## Ideologia Esquerra
+el_periodico <- read_excel("periodico.xls", col_names = TRUE) 
+publico <- read_excel("publico.xls", col_names = TRUE)
+
+esquerra <- rbind(el_periodico, publico)
+
+## Ideologia Centre
+el_pais <- read_excel("pais.xls", col_names = TRUE)
+la_vanguardia <- read_excel("vanguardia.xls", col_names = TRUE)
+
+centre <- rbind(el_pais, la_vanguardia)
+
+## Ideologia Dreta
+el_mundo <- read_excel("mundo.xls", col_names = TRUE)
+la_razon <- read_excel("razon.xls", col_names = TRUE)
+abc <- read_excel("abc.xls", col_names = TRUE)
+
+dreta <- rbind(el_mundo, la_razon,abc)
+tots <- rbind(esquerra,centre,dreta) #TOTS JUNTS
+
+cols <- c("El Periódico" = "#7B3014", "publico.es" = "#D94602", "El País" = "#FD8E3F", "La Vanguardia" = "#BCCACF", "El Mundo" = "#5BA2CC", "La Razón"= "#1F74B1", "ABC"="#26456E") 
+
+paleta <- c("#7B3014", "#8B310E", "#9C3206", "#AF3602","#C53E01","#D94602",
+  "#E35408", "#ED620F", "#F4711F", "#FA7F2E", "#FD8E3F", "#FE9C52",
+  "#FDAA65","#EEB78D","#D8C4B6", "#BCCACF", "#9EC9D9","#7AC7E2",
+  "#72BCDC","#6AB1D6","#5BA2CC","#4993C0","#3885B6","#2D7DB4","#1F74B1",
+  "#1C6AA8","#1C5F9E","#1F5591","#244D7F","#26456E")
+
+```
+
+
+```{r}
+#mitjana del valor economic i l'audiencia de les publicacions de la ideologia esquerra
+dt1 <- summarise(
+    group_by(esquerra, Publicacion),
+    n = n(),
+    Mean = round(mean(Valor),0), 
+    Sd = sd(Valor),
+    Var = var(Valor),
+    Q1 = quantile(Valor, .25),
+    Q2 = quantile(Valor, .50),
+    Q3 = quantile(Valor, .75),
+    Min = min(Valor),
+    Max = max(Valor))
+
+dt2 <- summarise(
+  group_by(esquerra, Publicacion), 
+  n = n(),
+  Mean = round(mean(Audiencia),0), 
+  Sd = sd(Audiencia),
+  Var = var(Audiencia),
+  Q1 = quantile(Audiencia, .25),
+  Q2 = quantile(Audiencia, .50),
+  Q3 = quantile(Audiencia, .75),
+  Min = min(Audiencia),
+  Max = max(Audiencia))
+
+```
+
+```{r}
+dt1 %>% 
+  kable() %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T)  %>%
+                add_header_above(c("Valor publicitari equivalent"=10))
+```
+
+```{r}
+kable(dt2) %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T) %>%
+                add_header_above(c("Audiència"=10))
+```
+
+```{r}
+#mitjana del valor economic i l'audiencia de les publicacions de la ideologia centre
+dt3 <- summarise(
+  group_by(centre, Publicacion), 
+  n = n(),
+  Mean = round(mean(Valor),0), 
+  Sd = sd(Valor),
+  Var = var(Valor),
+  Q1 = quantile(Valor, .25),
+  Q2 = quantile(Valor, .50),
+  Q3 = quantile(Valor, .75),
+  Min = min(Valor),
+  Max = max(Valor))
+
+dt4 <- summarise(
+  group_by(centre, Publicacion), 
+  n = n(),
+  Mean = round(mean(Audiencia),0), 
+  Sd = sd(Audiencia),
+  Var = var(Audiencia),
+  Q1 = quantile(Audiencia, .25),
+  Q2 = quantile(Audiencia, .50),
+  Q3 = quantile(Audiencia, .75),
+  Min = min(Audiencia),
+  Max = max(Audiencia))
+```
+
+```{r}
+kable(dt3) %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T) %>%
+                add_header_above(c("Valor publicitari equivalent"=10)) 
+```
+
+```{r}
+kable(dt4) %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T) %>%
+                add_header_above(c("Audiència"=10)) 
+```
+
+```{r}
+#mitjana del valor economic i l'audiencia de les publicacions de la ideologia dreta
+dt5<- summarise(
+  group_by(dreta, Publicacion), 
+  n = n(),
+  Mean = round(mean(Valor),0), 
+  Sd = sd(Valor),
+  Var = var(Valor),
+  Q1 = quantile(Valor, .25),
+  Q2 = quantile(Valor, .50),
+  Q3 = quantile(Valor, .75),
+  Min = min(Valor),
+  Max = max(Valor))
+
+dt6 <- summarise(
+  group_by(dreta, Publicacion), 
+  n = n(),
+  Mean = round(mean(Audiencia),0), 
+  Sd = sd(Audiencia),
+  Var = var(Audiencia),
+  Q1 = quantile(Audiencia, .25),
+  Q2 = quantile(Audiencia, .50),
+  Q3 = quantile(Audiencia, .75),
+  Min = min(Audiencia),
+  Max = max(Audiencia))
+```
+
+```{r}
+kable(dt5) %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T) %>%
+                add_header_above(c("Valor publicitari equivalent"=10))
+```
+
+```{r}
+kable(dt6) %>%
+  kable_styling(latex_options = c("condensed","hold_position"),
+                position = "center", full_width = FALSE) %>%
+                row_spec(0, bold = T) %>%
+                add_header_above(c("Audiència"=10)) 
+```
+
+```{r}
+#Nombre de notícies per mitjà
+tots %>%
+  group_by(Publicacion) %>%
+  summarize(news = n_distinct(IdDocument)) %>%
+  ggplot(aes(news, reorder(Publicacion, news), fill= Publicacion)) +
+  geom_col() +
+  ggtitle("Nombre de notícies per mitjà") +
+  scale_colour_manual(values = cols, aesthetics = c("fill")) +
+  theme_bw() +
+  theme(legend.position="none") +
+  labs(x = "Nombre de notícies",
+       y = NULL)
+```
+
+```{r}
+# grafic de les publicacions cronologieques per mitja
+ggplot(tots, aes(x = as.Date(Fecha), fill = Publicacion)) +
+  geom_histogram(position = "identity", bins = 25, show.legend = FALSE) +
+  scale_fill_manual(values = cols, aesthetics = c("fill")) +
+  scale_x_date(date_labels = "%d-%m", date_breaks = "5 days") +
+  labs(x = "Data de publicació", y = "Nombre de notícies") +
+  facet_wrap(~ Publicacion, ncol = 3) +
+  ggtitle("Cronograma de notícies per mitjà") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+#Cronograma del nombre de notícies publicades segons la data de publicació
+tots %>% 
+  mutate(mes_any = format(Fecha, "%m-%d")) %>% 
+  group_by(Publicacion, mes_any) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = mes_any, y = n, color = Publicacion)) +
+  geom_line(aes(group = Publicacion)) +
+  scale_fill_manual(values = cols, aesthetics = c("color")) +
+  labs(x = "Data de publicació", y = "Nombre de notícies") +
+  ggtitle("Cronograma de notícies") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, size = 6, hjust = 1), legend.position = "bottom", legend.title = element_blank())
+```
+
+## 2.	Anàlisi semàntica de les dades
+
+```{r}
+## Ideologia Esquerra
+per <- xmlToDataFrame("periodico.xml")
+pub <- xmlToDataFrame("publico.xml")
+
+## Ideologia Centre
+pai <- xmlToDataFrame("pais.xml")
+van <- xmlToDataFrame("vanguardia.xml")
+
+## Ideologia Dreta
+mun <- xmlToDataFrame("mundo.xml")
+raz <- xmlToDataFrame("razon.xml")
+ab <- xmlToDataFrame("abc.xml")
+```
+
+```{r}
+m <- c(rep("PERIODICO",length(per[,1])),
+       rep("PUBLICO",length(pub[,1])),
+       rep("EL_PAIS",length(pai[,1])),
+       rep("LA_VANGUARDIA",length(van[,1])), 
+       rep("EL_MUNDO",length(mun[,1])),
+       rep("LA_RAZON",length(raz[,1])),
+       rep("ABC",length(ab[,1])))
+
+dades <- rbind(per,pub,pai,van,mun,raz,ab)
+dades <- cbind(dades,m)
+```
+
+```{r}
+#Neteja del text
+text <- dades[,"body"]
+
+#Conviertim el text a minúsculas
+text <- tolower(text)
+# Eliminem pàgines web
+text <- str_replace_all(text,"http\\S*", "")
+text <- str_replace_all(text,"www\\S*", "")
+# Eliminem signes de puntuació
+text <- removePunctuation(text)
+# Eliminem els números
+text <- removeNumbers(text)
+# Eliminem de espais múltiples en blanc
+text <- stripWhitespace(text)
+text <- stri_trans_general(text, "Latin-ASCII")
+#Eliminem les stopwords
+text <- removeWords(text, words = stopwords("spanish"))
+#Elimnare paraules que no tenen significat o no ens interessen
+fora <- read.csv("paraules.csv", header=F)
+vector <- c(fora$V1)
+text <- removeWords(text, vector)
+
+dades <- data.frame(mitja = dades$m, text = text)
+
+#Separem el text en paraules
+mitja_paraules <- dades %>%
+  unnest_tokens(word, text) %>%
+  filter(str_detect(word, "[a-z']$"))
+
+colnames(mitja_paraules) <- c("mitja", "paraula")
+
+# Eliminación de tokens con una longitud < 3
+mitja_paraules <- mitja_paraules %>% 
+  filter(nchar(paraula) > 3 )
+
+# Nombre de vegades que cada marca utilitza certes paraules
+paraules_per_marca <- mitja_paraules %>%
+  count(mitja, paraula, sort = TRUE) %>%
+  ungroup()
+```
+
+```{r}
+#ajuntar paraules similars
+canvi <- read.csv("canvi.csv", header = T, sep = ";")
+
+canvi <- canvi %>%
+  pivot_longer(cols = -DEFINITIVA) %>%
+  dplyr::select(-name) %>%
+  drop_na()
+
+for (i in 1:nrow(paraules_per_marca)) {
+  if(paraules_per_marca$paraula[i] %in% canvi$value) {
+    paraules_per_marca$paraula[i] <- canvi$DEFINITIVA[canvi$value == paraules_per_marca$paraula[i]]
+  } else {
+    paraules_per_marca$paraula[i] <- paraules_per_marca$paraula[i]
+  }
+}
+
+saveRDS(paraules_per_marca, file = "paraules_per_marca.Rds") #desem les dades
+```
+
+```{r}
+paraules_per_marca <- readRDS("paraules_per_marca.Rds") #llegim les dades
+
+# Nombre de vegades que cada marca utilitza certes paraules
+paraules_per_marca <- paraules_per_marca %>%                                         
+ group_by(mitja, paraula) %>%                        
+ summarise_at(vars(n), list(n = sum)) %>% 
+ filter(n > 15)
+
+colors <- c("PERIODICO" = "#7B3014", "PUBLICO" = "#D94602", "EL_PAIS" = "#FD8E3F", 
+          "LA_VANGUARDIA" = "#BCCACF", "EL_MUNDO" = "#5BA2CC", 
+          "LA_RAZON"= "#1F74B1", "ABC"="#26456E")
+
+paleta <- c("#7B3014", "#8B310E", "#9C3206", "#AF3602","#C53E01","#D94602",
+  "#E35408", "#ED620F", "#F4711F", "#FA7F2E", "#FD8E3F", "#FE9C52",
+  "#FDAA65","#EEB78D","#D8C4B6", "#BCCACF", "#9EC9D9","#7AC7E2",
+  "#72BCDC","#6AB1D6","#5BA2CC","#4993C0","#3885B6","#2D7DB4","#1F74B1",
+  "#1C6AA8","#1C5F9E","#1F5591","#244D7F","#26456E")
+
+p1 <- paleta[1:8]
+p2 <- paleta[9:18]
+p3 <- paleta[19:30]
+```
+
+```{r}
+ES <- paraules_per_marca %>%
+   filter(mitja %in% c("PERIODICO", "PUBLICO"))%>%
+   select(paraula,n) %>%
+   group_by(paraula) %>%
+   summarise_at(vars(n), list(n = sum))
+
+esquerra <- as.vector(ES$paraula)
+esquerra <- as.character(esquerra)
+
+CEN <-paraules_per_marca %>%
+   filter(mitja %in% c("EL_PAIS", "LA_VANGUARDIA"))%>%
+   select(paraula,n) %>%
+   group_by(paraula) %>%
+   summarise_at(vars(n), list(n = sum))
+
+centre <- as.vector(CEN$paraula)
+centre <- as.character(centre)
+ 
+DRE <- paraules_per_marca %>%
+   filter(mitja %in% c("EL_MUNDO", "ABC", "LA_RAZON")) %>%
+   select(paraula,n) %>%
+   group_by(paraula) %>%
+   summarise_at(vars(n), list(n = sum))
+
+dreta <- as.vector(DRE$paraula)
+dreta <- as.character(dreta)
+
+i <- c(rep("ESQUERRA",nrow(ES)),
+       rep("DRETA",nrow(DRE)))
+
+esdre <- rbind(ES,DRE)
+esdre <- cbind(esdre,i)
+```
+
+### _2.1.	Freqüència absoluta_
+
+```{r}
+# Les visualitzem per les marques
+paraules_per_marca %>%
+  filter(mitja %in% c("PERIODICO","PUBLICO", "EL_PAIS", "LA_VANGUARDIA")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none", axis.text.y = element_text(size = 7)
+         ) +
+   coord_flip() +
+   ggtitle("20 conceptes amb més freqüència absoluta per a cada mitjà")+
+   facet_wrap(~ mitja, scales = "free", nrow = 2)
+```
+
+```{r}
+paraules_per_marca %>%
+  filter(mitja %in% c("EL_MUNDO", "LA_RAZON", "ABC")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none", axis.text.y = element_text(size = 7)
+         ) +
+   coord_flip() +
+     ggtitle("(bis) - 20 conceptes amb més freqüència absoluta per a cada mitjà")+
+   facet_wrap(~ mitja, scales = "free", nrow = 2)
+```
+
+```{r}
+perio <- paraules_per_marca %>%
+  filter(mitja %in% c("PERIODICO")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+publi <- paraules_per_marca %>%
+  filter(mitja %in% c("PUBLICO")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+```
+
+```{r}
+wordcloud(words = ES$paraula, freq = ES$n, scale = , min.freq = 20,
+          max.words=80, random.order=FALSE, rot.per=0.35, colors = p1)
+```
+
+```{r}
+pais <- paraules_per_marca %>%
+  filter(mitja %in% c("EL_PAIS")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta ", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+vang <- paraules_per_marca %>%
+  filter(mitja %in% c("LA_VANGUARDIA")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta ", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+```
+
+```{r}
+wordcloud(words = CEN$paraula, freq = CEN$n, scale = , min.freq = 20,
+          max.words=80, random.order=FALSE,rot.per=0.35, colors = p2)
+```
+
+```{r}
+raz <-paraules_per_marca %>%
+  filter(mitja %in% c("LA_RAZON")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta ", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+mund <- paraules_per_marca %>%
+  filter(mitja %in% c("EL_MUNDO")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = " Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+ab <-paraules_per_marca %>%
+  filter(mitja %in% c("ABC")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(paraula,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = colors, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = " Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+```
+
+```{r}
+wordcloud(words = DRE$paraula, freq = DRE$n, scale = , min.freq = 20,
+          max.words=80, random.order=FALSE, rot.per=0.35, colors = p3, title ="Wordcloud de dreta")
+```
+
+### _2.2.	Rellevància dels termes_
+
+```{r}
+# Busquem les paraules que més defineixen els mitjans
+tf_idf <- paraules_per_marca %>%
+   bind_tf_idf(paraula, mitja, n) %>%
+    arrange(desc(tf_idf))
+```
+
+```{r}
+# Les visualitzem per els mitjans
+tf_idf %>%
+  filter(mitja %in% c("PERIODICO","PUBLICO", "EL_PAIS", "LA_VANGUARDIA")) %>%
+  group_by(mitja) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  mutate(word = reorder(paraula, tf_idf)) %>%
+  ggplot(aes(tf_idf, word, fill = mitja)) +
+  scale_fill_manual(values = colors, aesthetics = c("fill")) +
+  geom_col(show.legend = FALSE) +
+  theme_bw() +
+  ggtitle("15 conceptes amb més rellevància per a cada mitjà") +
+  facet_wrap(~ mitja, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+```{r}
+# Les visualitzem per els mitjans
+tf_idf %>%
+  filter(mitja %in% c("EL_MUNDO", "LA_RAZON", "ABC")) %>%
+  group_by(mitja) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  mutate(word = reorder(paraula, tf_idf)) %>%
+  ggplot(aes(tf_idf, word, fill = mitja)) +
+  scale_fill_manual(values = colors, aesthetics = c("fill")) +
+  geom_col(show.legend = FALSE) +
+  theme_bw() +
+  facet_wrap(~ mitja, scales = "free") +
+  ggtitle("(bis) - 15 conceptes amb més rellevància per a cada mitjà")
+  labs(x = "tf-idf", y = NULL)
+```
+
+### _2.3.	Correlació entre mitjans i ideologies_
+
+```{r}
+## GRAFICS DE CORRELACIÓ ENTRE 2 MITJANS
+paraules_per_marca1 <- paraules_per_marca %>%
+  group_by(mitja) %>%
+  mutate(freq=n/n())
+```
+
+```{r}
+## mitjans d'ESQUERRA
+paraules_per_marca1 %>%
+  filter(mitja %in% c("PERIODICO", "PUBLICO")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = mitja, values_from = freq) %>%
+  ggplot(aes(PERIODICO, PUBLICO)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre PERIODICO i PÚBLICO") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+```
+
+```{r}
+## mitjans de centre
+paraules_per_marca1 %>%
+  filter(mitja %in% c("EL_PAIS", "LA_VANGUARDIA")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = mitja, values_from = freq) %>%
+  ggplot(aes(EL_PAIS, LA_VANGUARDIA)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre EL PAÍS i LA VANGUARDIA") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+```
+
+```{r}
+## mitjans de dreta
+g1 <- paraules_per_marca1 %>%
+  filter(mitja %in% c("ABC", "LA_RAZON")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = mitja, values_from = freq) %>%
+  ggplot(aes(ABC, LA_RAZON)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre ABC i LA RAZÓN") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+
+g2 <- paraules_per_marca1 %>%
+  filter(mitja %in% c("EL_MUNDO", "LA_RAZON")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = mitja, values_from = freq) %>%
+  ggplot(aes(EL_MUNDO, LA_RAZON)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre LA RAZÓN i EL MUNDO") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+
+g3 <- paraules_per_marca1 %>%
+  filter(mitja %in% c("EL_MUNDO", "ABC")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = mitja, values_from = freq) %>%
+  ggplot(aes(EL_MUNDO, ABC)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre EL MUNDO i ABC") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+
+```
+
+```{r}
+# ddaes per la correlació dreta contra esquerra
+
+esdre <- esdre %>%
+  group_by(i) %>%
+  mutate(freq=n/n())
+
+un <- esdre %>% filter(i=="DRETA") %>% select(paraula)
+dos <- esdre %>% filter(i=="ESQUERRA") %>% select(paraula)
+un <- data_frame(un$paraula)
+dos <- data_frame(dos$paraula)
+colnames(dos) <- c("V1")
+colnames(un) <- c("V1")
+
+comunes <- nrow(intersect(un,dos))
+```
+
+```{r}
+#Correlació dreta contra esquerra
+esdre %>%
+  filter(i %in% c("DRETA","ESQUERRA")) %>%
+  select(-n) %>%
+  pivot_wider(names_from = i, values_from = freq) %>%
+  ggplot(aes(DRETA, ESQUERRA)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = paraula), check_overlap = TRUE, vjust = 1.5, size = 3) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  ggtitle("Correlació entre DRETA i ESQUERRA") +
+  theme_minimal() + 
+  geom_abline(color = "red")
+
+```
+
+### _2.4.	Diferències de termes_
+
+```{r}
+#Paraules que diferenecien més els mitjans
+# Cálcul de odds i log of odds de cada paraula (esquerra)
+logo <- paraules_per_marca1 %>% 
+   filter(mitja %in% c("PERIODICO", "PUBLICO")) %>%
+   group_by(mitja) %>% 
+   left_join(paraules_per_marca1 %>% 
+                group_by(mitja) %>% 
+                summarise(N = n(), by= "mitja")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(mitja, paraula, odds) %>% 
+   spread(key = mitja, value = odds) %>%
+   mutate(log_odds = log(PERIODICO/PUBLICO), abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"PERIODICO", "PUBLICO")) %>% 
+   arrange(desc(abs_log_odds))
+
+primera <- c("PERIODICO" = "#7B3014", "PUBLICO" = "#D94602")
+
+logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = primera, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (PERIODICO/PUBLICO)") +
+   coord_flip() + 
+   ggtitle("Odds ratio d'esquerra")+
+   theme_bw() +
+   theme(legend.title = element_blank())
+```
+
+```{r}
+# Cálcul de odds i log of odds de cada paraula (centre)
+logo <- paraules_per_marca1 %>% 
+   filter(mitja %in% c("LA_VANGUARDIA", "EL_PAIS")) %>%
+   group_by(mitja) %>% 
+   left_join(paraules_per_marca1 %>% 
+                group_by(mitja) %>% 
+                summarise(N = n(), by= "mitja")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(mitja, paraula, odds) %>% 
+   spread(key = mitja, value = odds) %>%
+   mutate(log_odds = log(LA_VANGUARDIA/EL_PAIS), 
+          abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"LA_VANGUARDIA", "EL_PAIS")) %>% 
+   arrange(desc(abs_log_odds))
+
+segona <- c("EL_PAIS" = "#FD8E3F", "LA_VANGUARDIA" = "#BCCACF")
+
+logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = segona, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (LA_VANGUARDIA/EL_PAIS)") +
+   coord_flip() + 
+   ggtitle("Odds ratio de centre")+
+   theme_bw() +
+   theme(legend.title = element_blank())
+```
+
+```{r}
+# Cálcul de odds i log of odds de cada paraula (dreta)
+logo <- paraules_per_marca1 %>% 
+   filter(mitja %in% c("EL_MUNDO", "ABC")) %>%
+   group_by(mitja) %>% 
+   left_join(paraules_per_marca1 %>% 
+                group_by(mitja) %>% 
+                summarise(N = n(), by= "mitja")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(mitja, paraula, odds) %>% 
+   spread(key = mitja, value = odds) %>%
+   mutate(log_odds = log(EL_MUNDO/ABC), abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"EL_MUNDO", "ABC")) %>% 
+   arrange(desc(abs_log_odds))
+
+tercera <- c("EL_MUNDO" = "#5BA2CC", "ABC"="#26456E")
+
+d1 <-logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = tercera, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (EL_MUNDO/ABC)") +
+   coord_flip() + 
+   theme_bw() +
+   theme(legend.title = element_blank())
+
+logo <- paraules_per_marca1 %>% 
+   filter(mitja %in% c("EL_MUNDO", "LA_RAZON")) %>%
+   group_by(mitja) %>% 
+   left_join(paraules_per_marca1 %>% 
+                group_by(mitja) %>% 
+                summarise(N = n(), by= "mitja")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(mitja, paraula, odds) %>% 
+   spread(key = mitja, value = odds) %>%
+   mutate(log_odds = log(EL_MUNDO/LA_RAZON), abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"EL_MUNDO", "LA_RAZON")) %>% 
+   arrange(desc(abs_log_odds))
+
+quarta <- c("EL_MUNDO" = "#5BA2CC", "LA_RAZON"= "#1F74B1")
+
+d2 <-logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = quarta, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (EL_MUNDO/LA_RAZON)") +
+   coord_flip() + 
+   theme_bw() +
+   theme(legend.title = element_blank())
+
+logo <- paraules_per_marca1 %>% 
+   filter(mitja %in% c("LA_RAZON", "ABC")) %>%
+   group_by(mitja) %>% 
+   left_join(paraules_per_marca1 %>% 
+                group_by(mitja) %>% 
+                summarise(N = n(), by= "mitja")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(mitja, paraula, odds) %>% 
+   spread(key = mitja, value = odds) %>%
+   mutate(log_odds = log(LA_RAZON/ABC), abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"LA_RAZON", "ABC")) %>% 
+   arrange(desc(abs_log_odds))
+
+cinquena <- c("LA_RAZON"= "#1F74B1", "ABC"="#26456E")
+
+d3 <-logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = cinquena, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (LA_RAZON/ABC)") +
+   coord_flip() + 
+   theme_bw() +
+   theme(legend.title = element_blank())
+
+```
+
+```{r}
+# Cálcul de odds i log of odds de cada paraula (esquerra contra dreta)
+logo <- esdre %>% 
+   filter(i %in% c("DRETA", "ESQUERRA")) %>%
+   group_by(i) %>% 
+   left_join(esdre %>% 
+                group_by(i) %>% 
+                summarise(N = n(), by= "i")) %>% 
+   mutate(odds = (n + 1) / (N + 1)) %>% 
+   select(i, paraula, odds) %>% 
+   spread(key = i, value = odds) %>%
+   mutate(log_odds = log(DRETA/ESQUERRA), abs_log_odds = abs(log_odds)) %>%
+   mutate(freq_mitja = if_else(log_odds > 0,"DRETA", "ESQUERRA")) %>% 
+   arrange(desc(abs_log_odds))
+
+ultima <- c("ESQUERRA" = "#8B310E", "DRETA" = "#244D7F")
+
+logo %>% 
+   group_by(freq_mitja) %>% 
+   top_n(10, abs_log_odds) %>%
+   ggplot(aes(x = reorder(paraula, log_odds), y = log_odds, 
+              fill = freq_mitja)) +
+   scale_fill_manual(values = ultima, aesthetics = c("fill")) +
+   geom_col() +
+   labs(x = "paraula", y = "log odds ratio (DRETA/ESQUERRA)") +
+   coord_flip() + 
+   ggtitle("Odds ratio de dreta i esquerra") +
+   theme_bw() +
+   theme(legend.title = element_blank())
+
+```
+
+### _2.5.	PCA_
+
+```{r}
+#PCA
+
+dadesPCA <- paraules_per_marca %>% 
+   pivot_wider(names_from = paraula, values_from = n)
+
+dadesPCA[is.na(dadesPCA)] <- 0
+
+pca_res <- prcomp(dadesPCA[, 2:ncol(dadesPCA)])
+
+pca_res$x %>% 
+   as.data.frame() %>% 
+   dplyr::select(PC1, PC2) %>% 
+   mutate(mitja = dadesPCA$mitja) %>% 
+   ggplot(aes(PC1, PC2, label = mitja, color = mitja)) +
+  ggtitle("Anàlisi de components principals") +
+   ggrepel::geom_text_repel(check_overlap = TRUE, show.legend = FALSE) +
+  scale_color_manual(values = colors) +
+   theme_bw()
+```
+
+### _2.6.	Diagrama de Venn_
+
+```{r}
+#Diagrama de Venn
+
+overlap <- data.frame(paraules = unique(c(esquerra, centre, dreta))) %>%
+  mutate(ESQUERRA = paraules %in% esquerra,
+         CENTRE = paraules %in% centre,
+         DRETA = paraules %in% dreta)
+
+overlap %>% 
+  dplyr::select(ESQUERRA, CENTRE, DRETA) %>%
+  euler() %>%
+  eulerr:::plot.euler(counts = TRUE, quantities = TRUE, main="Diagrama de Venn")
+
+```
+
+# IV. ANÀLISI DE L’IMPACTE ECONÒMIC DE LA GUERRA
+
+```{r}
+## Economia
+el_economista <- read_excel("economista.xls", col_names = TRUE)
+eco <- xmlToDataFrame("economista.xml")
+cinco_dias <- read_excel("cinco_dias.xls", col_names = TRUE)
+cin <- xmlToDataFrame("cinco_dias.xml")
+expansion <- read_excel("expansion.xls", col_names = TRUE)
+exp <- xmlToDataFrame("expansion.xml")
+
+economia <- rbind(el_economista, cinco_dias, expansion)
+```
+
+```{r}
+m2 <- c(rep("ECONOMISTA",length(eco[,1])),
+       rep("CINCO_DIAS",length(cin[,1])),
+       rep("EXPANSION",length(exp[,1])))
+
+dades2 <- rbind(eco,cin,exp)
+dades2 <- cbind(dades2,m2)
+```
+
+```{r}
+#Neteja del text
+
+text2 <- dades2[,"body"]
+
+#Conviertim el text a minúsculas
+text2 <- tolower(text2)
+# Eliminem pàgines web
+text2 <- str_replace_all(text2,"http\\S*", "")
+text2 <- str_replace_all(text2,"www\\S*", "")
+text2 <- str_replace_all(text2,"p\\S*", "")
+# Eliminem signes de puntuació
+text2 <- removePunctuation(text2)
+# Eliminem els números
+text2 <- removeNumbers(text2)
+# Eliminem de espais múltiples en blanc
+text2 <- stripWhitespace(text2)
+text2 <- stri_trans_general(text2, "Latin-ASCII")
+#Eliminem les stopwords
+text2 <- removeWords(text2, words = stopwords("spanish"))
+#Elimnare paraules que no tenen significat o no ens interessen
+fora2 <- read.csv("paraules2.csv", header=F)
+vector2 <- c(fora2$V1)
+text2 <- removeWords(text2, vector2)
+
+dades2 <- data.frame(mitja = dades2$m2, text = text2)
+```
+
+```{r}
+# Contatge d'aparició de cada bigrama
+bigrama <- dades2 %>%
+  unnest_tokens(input = text, output = "word", token = "ngrams", n = 2, drop = TRUE) %>%
+  count(mitja, word, sort = TRUE) %>%
+  ungroup()
+
+bigrama <- bigrama %>%                                         
+ group_by(mitja, word) %>%                        
+ summarise_at(vars(n), list(n = sum)) %>% 
+ filter(n > 25)
+
+unigrama <- dades2 %>%
+  unnest_tokens(word, text) %>%
+  count(mitja, word, sort = TRUE) %>%
+  ungroup() %>%
+  filter(word %in% c("iva", "oro", "ley")) 
+
+paraules_per_marca2 <- rbind(unigrama, bigrama)
+
+saveRDS(paraules_per_marca2, file = "paraules_per_marca2.Rds")
+```
+
+```{r}
+paraules_per_marca2 <- readRDS("paraules_per_marca2.Rds")
+
+paraules_per_marca2 <- paraules_per_marca2 %>%
+   group_by(mitja, word) %>%
+   summarise_at(vars(n), list(n = sum)) %>% 
+   filter(n > 15)
+
+
+ cols1 <- c("CINCO_DIAS" = "#B3E0A6", "EXPANSION" = "#559F52", "ECONOMISTA" = "#24693D")
+
+```
+
+```{r}
+ci <- paraules_per_marca2 %>%
+  filter(mitja %in% c("CINCO_DIAS")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(word,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = cols1, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+ex <- paraules_per_marca2 %>%
+  filter(mitja %in% c("EXPANSION")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(word,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = cols1, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+
+ec <- paraules_per_marca2 %>%
+  filter(mitja %in% c("ECONOMISTA")) %>%
+   group_by(mitja) %>%
+   top_n(20, n) %>% 
+   arrange(mitja, desc(n)) %>%
+   ggplot(aes(x = reorder(word,n), y = n, fill = mitja)) +
+   scale_fill_manual(values = cols1, aesthetics = c("fill")) +
+   geom_col() +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   theme(legend.position = "none") +
+   coord_flip() +
+   facet_wrap(~ mitja, scales = "free", drop = TRUE)
+```
+
+```{r}
+paraules_per_marca2 %>%
+   select(word, n) %>%
+   group_by(word) %>%
+   summarise_at(vars(n), list(n = sum)) %>%
+   top_n(20, n) %>% 
+   ggplot(aes(x = reorder(word,n), y = n)) +
+   geom_col(fill="#80BF61") +
+   theme_bw() +
+   labs(y = "Freqüència absoluta", x = "") +
+   ggtitle("20 bigrames amb més freqüencia absoluta") +
+   theme(legend.position = "none") +
+   coord_flip()
+```
